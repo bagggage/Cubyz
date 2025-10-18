@@ -22,6 +22,9 @@ selectedIdx: ?u32 = null,
 hoveredIdx: ?u32 = null,
 pressedIdx: ?u32 = null,
 
+upPressed: bool = false,
+downPressed: bool = false,
+
 const normalColor: u32 = 0x00000000;
 const hoveredColor: u32 = 0x40ffffff;
 const selectedColor: u32 = 0x50000000;
@@ -40,6 +43,16 @@ pub fn deinit(self: *const SelectableList) void {
 pub fn select(self: *SelectableList, itemIdx: usize) void {
 	const idx: u32 = @intCast(itemIdx);
 	if(self.selectedIdx != idx) {
+		// focuse on select element
+		const child = self.list.children.items[idx];
+		const childPosY = child.pos()[1] + self.list.getShiftedPos()[1] - self.list.pos[1];
+		const childLowerBound = childPosY + child.size()[1];
+		if(childLowerBound > self.list.size[1]) {
+			self.list.scrollBar.scroll(childLowerBound/self.list.size[1] - 1);
+		} else if(childPosY < 0) {
+			self.list.scrollBar.scroll(childPosY/self.list.size[1]);
+		}
+
 		self.selectedIdx = idx;
 		self.hoveredIdx = if(self.hoveredIdx == idx) null else self.hoveredIdx;
 		if(self.onSelect) |cb| {
@@ -100,6 +113,26 @@ pub fn mainButtonReleased(self: *SelectableList, mousePosition: Vec2f) void {
 
 pub fn updateSelected(self: *SelectableList) void {
 	self.list.updateSelected();
+
+	if(self.list.children.items.len == 0) return;
+
+	if(main.KeyBoard.key("textCursorUp").pressed) {
+		if(!self.upPressed and self.selectedIdx != null) {
+			self.select(if(self.selectedIdx.? != 0) self.selectedIdx.? - 1 else 0);
+		}
+		self.upPressed = true;
+	} else {
+		self.upPressed = false;
+	}
+	if(main.KeyBoard.key("textCursorDown").pressed) {
+		if(!self.downPressed and self.selectedIdx != null) {
+			const maxIdx = @as(u32, @intCast(self.list.children.items.len - 1));
+			self.select(@min(self.selectedIdx.? + 1, maxIdx));
+		}
+		self.downPressed = true;
+	} else {
+		self.downPressed = false;
+	}
 }
 
 pub fn updateHovered(self: *SelectableList, mousePosition: Vec2f) void {
